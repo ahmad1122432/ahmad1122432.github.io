@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GradeBook — Student Grade Management</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:#0f1117; --surface:#1a1d27; --card:#21253a; --border:#2e3350;
+    --accent:#6c63ff; --accent2:#a78bfa; --green:#22c55e; --red:#ef4444;
+    --yellow:#f59e0b; --text:#e2e8f0; --muted:#8892b0; --radius:12px;
+    --font-main:'Inter',sans-serif; --font-head:'Space Grotesk',sans-serif;
+  }
+  body { font-family:var(--font-main); background:var(--bg); color:var(--text); min-height:100vh; }
+  .layout { display:flex; min-height:100vh; }
+
+  /* SIDEBAR */
+  .sidebar { width:240px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; padding:28px 0; position:fixed; height:100vh; top:0; left:0; z-index:100; }
+  .logo { font-family:var(--font-head); font-size:1.3rem; font-weight:700; color:var(--accent2); padding:0 24px 28px; border-bottom:1px solid var(--border); }
+  .logo span { color:var(--accent); }
+  .nav { margin-top:20px; flex:1; }
+  .nav-item { display:flex; align-items:center; gap:12px; padding:12px 24px; cursor:pointer; color:var(--muted); font-size:0.875rem; font-weight:500; transition:all 0.15s; border-left:3px solid transparent; }
+  .nav-item:hover { color:var(--text); background:rgba(108,99,255,0.07); }
+  .nav-item.active { color:var(--accent2); background:rgba(108,99,255,0.12); border-left-color:var(--accent); }
+  .nav-item svg { width:18px; height:18px; flex-shrink:0; }
+
+  /* MAIN */
+  .main { margin-left:240px; flex:1; padding:32px 36px; max-width:calc(100vw - 240px); overflow-x:auto; }
+  .page { display:none; }
+  .page.active { display:block; }
+
+  /* PAGE HEADER */
+  .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:28px; flex-wrap:wrap; gap:12px; }
+  .page-title { font-family:var(--font-head); font-size:1.6rem; font-weight:700; letter-spacing:-0.4px; }
+  .page-title span { color:var(--accent2); }
+
+  /* STATS */
+  .stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:28px; }
+  .stat-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; position:relative; overflow:hidden; }
+  .stat-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+  .stat-card.purple::before { background:var(--accent); }
+  .stat-card.green::before  { background:var(--green); }
+  .stat-card.yellow::before { background:var(--yellow); }
+  .stat-card.red::before    { background:var(--red); }
+  .stat-label { font-size:0.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.8px; margin-bottom:8px; }
+  .stat-value { font-family:var(--font-head); font-size:2rem; font-weight:700; }
+  .stat-sub   { font-size:0.75rem; color:var(--muted); margin-top:4px; }
+
+  /* BUTTONS */
+  .btn { display:inline-flex; align-items:center; gap:8px; padding:10px 20px; border-radius:8px; border:none; font-family:var(--font-main); font-size:0.875rem; font-weight:600; cursor:pointer; transition:all 0.15s; }
+  .btn-primary { background:var(--accent); color:#fff; }
+  .btn-primary:hover { background:#5a52e0; transform:translateY(-1px); }
+  .btn-ghost { background:transparent; color:var(--muted); border:1px solid var(--border); }
+  .btn-ghost:hover { color:var(--text); border-color:var(--accent); }
+  .btn-danger { background:rgba(239,68,68,0.15); color:var(--red); border:1px solid rgba(239,68,68,0.3); }
+  .btn-danger:hover { background:rgba(239,68,68,0.25); }
+  .btn-success { background:rgba(34,197,94,0.15); color:var(--green); border:1px solid rgba(34,197,94,0.3); }
+  .btn-success:hover { background:rgba(34,197,94,0.25); }
+  .btn-sm { padding:6px 12px; font-size:0.8rem; }
+
+  /* TABLE */
+  .table-wrap { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+  .table-toolbar { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border); flex-wrap:wrap; gap:10px; }
+  .search-box { display:flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:8px 14px; width:240px; }
+  .search-box input { background:none; border:none; outline:none; color:var(--text); font-size:0.875rem; width:100%; font-family:var(--font-main); }
+  .search-box svg { color:var(--muted); width:16px; height:16px; flex-shrink:0; }
+  table { width:100%; border-collapse:collapse; }
+  thead tr { background:rgba(108,99,255,0.08); }
+  th { text-align:left; padding:12px 16px; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.8px; color:var(--muted); font-weight:600; cursor:pointer; white-space:nowrap; user-select:none; }
+  th:hover { color:var(--accent2); }
+  td { padding:13px 16px; font-size:0.875rem; border-top:1px solid var(--border); white-space:nowrap; }
+  tr:hover td { background:rgba(108,99,255,0.05); }
+
+  .grade-badge { display:inline-block; padding:3px 10px; border-radius:20px; font-weight:700; font-size:0.8rem; letter-spacing:0.5px; }
+  .grade-A { background:rgba(34,197,94,0.15); color:#22c55e; }
+  .grade-B { background:rgba(108,99,255,0.15); color:var(--accent2); }
+  .grade-C { background:rgba(245,158,11,0.15); color:var(--yellow); }
+  .grade-D { background:rgba(249,115,22,0.15); color:#f97316; }
+  .grade-F { background:rgba(239,68,68,0.15); color:var(--red); }
+
+  .gpa-bar-wrap { display:flex; align-items:center; gap:10px; }
+  .gpa-bar { flex:1; background:var(--border); border-radius:4px; height:6px; min-width:60px; }
+  .gpa-bar-fill { height:100%; border-radius:4px; background:var(--accent); transition:width 0.4s; }
+
+  .empty-state { text-align:center; padding:60px 20px; color:var(--muted); }
+  .empty-state svg { width:48px; height:48px; margin-bottom:12px; opacity:0.4; display:block; margin-inline:auto; }
+  .empty-state p { font-size:0.9rem; }
+
+  /* MODAL */
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); backdrop-filter:blur(4px); z-index:200; align-items:center; justify-content:center; }
+  .modal-overlay.open { display:flex; }
+  .modal { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:32px; width:560px; max-width:95vw; max-height:90vh; overflow-y:auto; animation:modalIn 0.2s ease; }
+  @keyframes modalIn { from{opacity:0;transform:translateY(16px) scale(0.97)} to{opacity:1;transform:translateY(0) scale(1)} }
+  .modal-title { font-family:var(--font-head); font-size:1.2rem; font-weight:700; margin-bottom:24px; }
+  .modal-footer { display:flex; gap:10px; justify-content:flex-end; margin-top:24px; padding-top:20px; border-top:1px solid var(--border); }
+
+  /* FORM */
+  .form-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .form-group { margin-bottom:16px; }
+  .form-group label { display:block; font-size:0.8rem; color:var(--muted); font-weight:500; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.6px; }
+  .form-group input { width:100%; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px 14px; color:var(--text); font-size:0.875rem; font-family:var(--font-main); outline:none; transition:border-color 0.15s; }
+  .form-group input:focus { border-color:var(--accent); }
+  .form-group input.error { border-color:var(--red); }
+  .form-error { font-size:0.75rem; color:var(--red); margin-top:4px; }
+  .marks-label { font-size:0.8rem; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:0.6px; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+
+  /* SUBJECTS MANAGER */
+  .subject-list { display:flex; flex-direction:column; gap:8px; margin-bottom:16px; }
+  .subject-item { display:flex; align-items:center; gap:10px; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px 14px; }
+  .subject-item span { flex:1; font-size:0.875rem; font-weight:500; }
+  .subject-item input { flex:1; background:transparent; border:none; outline:none; color:var(--text); font-size:0.875rem; font-family:var(--font-main); }
+  .subject-add-row { display:flex; gap:10px; }
+  .subject-add-row input { flex:1; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px 14px; color:var(--text); font-size:0.875rem; font-family:var(--font-main); outline:none; }
+  .subject-add-row input:focus { border-color:var(--accent); }
+  .warning-box { background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); border-radius:8px; padding:12px 16px; font-size:0.8rem; color:var(--yellow); margin-bottom:16px; }
+
+  /* TOAST */
+  #toast { position:fixed; bottom:28px; right:28px; background:var(--card); border:1px solid var(--border); border-radius:10px; padding:14px 20px; font-size:0.875rem; font-weight:500; display:flex; align-items:center; gap:10px; z-index:999; transform:translateY(80px); opacity:0; transition:all 0.3s ease; max-width:320px; }
+  #toast.show { transform:translateY(0); opacity:1; }
+  #toast.success { border-left:4px solid var(--green); }
+  #toast.error   { border-left:4px solid var(--red); }
+
+  /* ANALYTICS */
+  .chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:24px; }
+  .chart-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; }
+  .chart-title { font-size:0.85rem; font-weight:600; color:var(--muted); margin-bottom:16px; text-transform:uppercase; letter-spacing:0.6px; }
+  .bar-chart { display:flex; align-items:flex-end; gap:10px; height:120px; overflow-x:auto; padding-bottom:4px; }
+  .bar-col { display:flex; flex-direction:column; align-items:center; gap:6px; min-width:40px; }
+  .bar { width:100%; border-radius:4px 4px 0 0; transition:height 0.5s ease; min-height:4px; min-width:32px; }
+  .bar-lbl { font-size:0.65rem; color:var(--muted); text-align:center; }
+  .bar-val { font-size:0.7rem; font-weight:600; color:var(--accent2); }
+  .donut-wrap { display:flex; align-items:center; gap:20px; }
+  .donut-legend { display:flex; flex-direction:column; gap:8px; }
+  .legend-item { display:flex; align-items:center; gap:8px; font-size:0.8rem; }
+  .legend-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+
+  /* DASHBOARD TOP STUDENTS */
+  .top-student { display:flex; align-items:center; gap:14px; padding:14px 0; border-bottom:1px solid var(--border); }
+  .top-student:last-child { border-bottom:none; }
+  .rank { font-family:var(--font-head); font-size:1.1rem; font-weight:700; color:var(--muted); width:24px; text-align:center; }
+  .rank.gold { color:#f59e0b; } .rank.silver { color:#94a3b8; } .rank.bronze { color:#cd7c4b; }
+  .avatar { width:38px; height:38px; border-radius:50%; background:linear-gradient(135deg,var(--accent),var(--accent2)); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.9rem; color:#fff; flex-shrink:0; }
+  .student-info { flex:1; }
+  .student-name-sm { font-size:0.875rem; font-weight:600; }
+  .student-pct { font-size:0.75rem; color:var(--muted); }
+
+  @media(max-width:768px) {
+    .sidebar { width:60px; }
+    .logo,.nav-item span { display:none; }
+    .main { margin-left:60px; padding:20px 16px; max-width:calc(100vw - 60px); }
+    .stats-grid { grid-template-columns:1fr 1fr; }
+    .chart-grid { grid-template-columns:1fr; }
+    .form-row { grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="logo">Grade<span>Book</span></div>
+    <nav class="nav">
+      <div class="nav-item active" onclick="navigate('dashboard')">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span>Dashboard</span>
+      </div>
+      <div class="nav-item" onclick="navigate('students')">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span>Students</span>
+      </div>
+      <div class="nav-item" onclick="navigate('analytics')">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <span>Analytics</span>
+      </div>
+      <div class="nav-item" onclick="navigate('subjects')">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        <span>Subjects</span>
+      </div>
+    </nav>
+  </aside>
+
+  <main class="main">
+
+    <!-- ══ DASHBOARD ══ -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header">
+        <div class="page-title">Dashboard <span>Overview</span></div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card purple"><div class="stat-label">Total Students</div><div class="stat-value" id="stat-total">0</div><div class="stat-sub">enrolled</div></div>
+        <div class="stat-card green"><div class="stat-label">Class Average</div><div class="stat-value" id="stat-avg">—</div><div class="stat-sub">GPA</div></div>
+        <div class="stat-card yellow"><div class="stat-label">Passing Rate</div><div class="stat-value" id="stat-pass">—</div><div class="stat-sub">above 50%</div></div>
+        <div class="stat-card red"><div class="stat-label">At Risk</div><div class="stat-value" id="stat-risk">0</div><div class="stat-sub">below 50%</div></div>
+      </div>
+      <div class="table-wrap" style="padding:20px;">
+        <div class="chart-title">🏆 Top Performers</div>
+        <div id="top-list"><div class="empty-state"><svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><p>Add students to see top performers</p></div></div>
+      </div>
+    </div>
+
+    <!-- ══ STUDENTS ══ -->
+    <div class="page" id="page-students">
+      <div class="page-header">
+        <div class="page-title">Students <span>Records</span></div>
+        <button class="btn btn-primary" onclick="openAddModal()">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Student
+        </button>
+      </div>
+      <div class="table-wrap">
+        <div class="table-toolbar">
+          <div class="search-box">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" placeholder="Search students…" id="searchInput" oninput="renderTable()"/>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button class="btn btn-ghost btn-sm" onclick="sortTable('name')">Sort Name</button>
+            <button class="btn btn-ghost btn-sm" onclick="sortTable('gpa')">Sort GPA</button>
+            <button class="btn btn-ghost btn-sm" onclick="exportCSV()">Export CSV</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead><tr id="table-head"></tr></thead>
+            <tbody id="student-table-body"></tbody>
+          </table>
+        </div>
+        <div id="table-empty" class="empty-state" style="display:none;">
+          <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          <p>No students yet. Click <strong>Add Student</strong> to get started.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ANALYTICS ══ -->
+    <div class="page" id="page-analytics">
+      <div class="page-header"><div class="page-title">Analytics <span>Insights</span></div></div>
+      <div class="chart-grid">
+        <div class="chart-card"><div class="chart-title">Subject Averages</div><div class="bar-chart" id="subject-chart"></div></div>
+        <div class="chart-card"><div class="chart-title">Grade Distribution</div><div class="donut-wrap"><canvas id="donut-canvas" width="120" height="120"></canvas><div class="donut-legend" id="donut-legend"></div></div></div>
+      </div>
+      <div class="chart-card"><div class="chart-title">GPA — All Students</div><div id="gpa-bars" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;"></div></div>
+    </div>
+
+    <!-- ══ SUBJECTS MANAGER ══ -->
+    <div class="page" id="page-subjects">
+      <div class="page-header">
+        <div class="page-title">Subjects <span>Manager</span></div>
+      </div>
+
+      <div class="table-wrap" style="padding:24px;max-width:540px;">
+        <div class="chart-title" style="margin-bottom:8px;">Your Subjects</div>
+        <p style="font-size:0.82rem;color:var(--muted);margin-bottom:20px;">These subjects appear in the Add Student form and all reports. You can add, rename, or remove them. Min 1 subject required.</p>
+
+        <div id="subject-list-ui"></div>
+
+        <div class="subject-add-row" style="margin-top:8px;">
+          <input type="text" id="new-subject-input" placeholder="e.g. Chemistry, Urdu, Statistics…" maxlength="30"
+            onkeydown="if(event.key==='Enter') addSubject()"/>
+          <button class="btn btn-success" onclick="addSubject()">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add
+          </button>
+        </div>
+        <div id="subj-error" style="font-size:0.78rem;color:var(--red);margin-top:8px;"></div>
+
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-ghost btn-sm" onclick="resetSubjects()">Reset to Defaults</button>
+        </div>
+      </div>
+
+      <div class="warning-box" style="max-width:540px;margin-top:16px;">
+        ⚠️ Removing or adding subjects will <strong>clear all existing student data</strong> to keep records consistent. Rename is safe and keeps all data.
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ADD / EDIT MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">Add New Student</div>
+    <div class="form-group">
+      <label>Full Name</label>
+      <input type="text" id="f-name" placeholder="e.g. Ahmad Ansari"/>
+      <div class="form-error" id="err-name"></div>
+    </div>
+    <div class="marks-label">Subject Marks (0 – 100)</div>
+    <div class="form-row" id="marks-fields"></div>
+    <div class="form-error" id="err-marks"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveStudent()">Save Student</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────
+const DEFAULT_SUBJECTS = ['Math', 'Physics', 'English', 'OOP', 'DSA'];
+let subjects  = JSON.parse(localStorage.getItem('gb_subjects') || 'null') || [...DEFAULT_SUBJECTS];
+let students  = JSON.parse(localStorage.getItem('gb_students') || '[]');
+let editIndex = -1;
+let sortKey   = 'name';
+let sortAsc   = true;
+
+// ── PERSIST ───────────────────────────────────────────────
+function persist() {
+  localStorage.setItem('gb_students', JSON.stringify(students));
+  localStorage.setItem('gb_subjects', JSON.stringify(subjects));
+}
+
+// ── CALCULATIONS ──────────────────────────────────────────
+function calcPercentage(marks) { return marks.reduce((a,b)=>a+b,0)/marks.length; }
+function calcGPA(p) { return p>=90?4.0:p>=80?3.7:p>=70?3.0:p>=60?2.0:p>=50?1.0:0.0; }
+function calcGrade(p) { return p>=90?'A+':p>=80?'A':p>=70?'B':p>=60?'C':p>=50?'D':'F'; }
+function gradeClass(g) { return g.startsWith('A')?'grade-A':g==='B'?'grade-B':g==='C'?'grade-C':g==='D'?'grade-D':'grade-F'; }
+
+// ── NAVIGATION ────────────────────────────────────────────
+const PAGES = ['dashboard','students','analytics','subjects'];
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  document.querySelectorAll('.nav-item')[PAGES.indexOf(page)].classList.add('active');
+  if(page==='dashboard') renderDashboard();
+  if(page==='students')  { buildTableHead(); renderTable(); }
+  if(page==='analytics') renderAnalytics();
+  if(page==='subjects')  renderSubjectManager();
+}
+
+// ── BUILD DYNAMIC TABLE HEADER ─────────────────────────────
+function buildTableHead() {
+  document.getElementById('table-head').innerHTML =
+    `<th>#</th><th>Name</th>` +
+    subjects.map(s=>`<th>${s}</th>`).join('') +
+    `<th>Avg%</th><th>GPA</th><th>Grade</th><th>Actions</th>`;
+}
+
+// ── MODAL ─────────────────────────────────────────────────
+function buildMarksFields() {
+  const container = document.getElementById('marks-fields');
+  container.innerHTML = subjects.map((s,i) => `
+    <div class="form-group">
+      <label>${s}</label>
+      <input type="number" id="f-mark-${i}" min="0" max="100" placeholder="0–100"/>
+    </div>
+  `).join('');
+}
+
+function openAddModal() {
+  editIndex = -1;
+  document.getElementById('modal-title').textContent = 'Add New Student';
+  document.getElementById('f-name').value = '';
+  buildMarksFields();
+  clearErrors();
+  document.getElementById('modal-overlay').classList.add('open');
+  document.getElementById('f-name').focus();
+}
+function openEditModal(i) {
+  editIndex = i;
+  const s = students[i];
+  document.getElementById('modal-title').textContent = 'Edit Student';
+  document.getElementById('f-name').value = s.name;
+  buildMarksFields();
+  subjects.forEach((_,j) => {
+    const el = document.getElementById('f-mark-'+j);
+    if(el) el.value = s.marks[j] !== undefined ? s.marks[j] : '';
+  });
+  clearErrors();
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+function clearErrors() {
+  document.getElementById('err-name').textContent='';
+  document.getElementById('err-marks').textContent='';
+  document.querySelectorAll('.modal input').forEach(i=>i.classList.remove('error'));
+}
+
+// ── SAVE STUDENT ──────────────────────────────────────────
+function saveStudent() {
+  clearErrors();
+  let valid = true;
+  const name = document.getElementById('f-name').value.trim();
+  if(!name) {
+    document.getElementById('err-name').textContent='Name is required.';
+    document.getElementById('f-name').classList.add('error');
+    valid = false;
+  }
+  const marks = subjects.map((_,i)=>parseFloat(document.getElementById('f-mark-'+i).value));
+  for(let i=0;i<marks.length;i++) {
+    if(isNaN(marks[i])||marks[i]<0||marks[i]>100) {
+      document.getElementById('err-marks').textContent='All marks must be between 0 and 100.';
+      document.getElementById('f-mark-'+i).classList.add('error');
+      valid=false; break;
+    }
+  }
+  if(!valid) return;
+
+  const pct=calcPercentage(marks), gpa=calcGPA(pct), grade=calcGrade(pct);
+  const student={name,marks,percentage:pct,gpa,grade};
+
+  if(editIndex===-1) { students.push(student); showToast('Student added!','success'); }
+  else { students[editIndex]=student; showToast('Student updated!','success'); }
+
+  persist(); closeModal(); buildTableHead(); renderTable(); renderDashboard();
+}
+
+// ── DELETE ────────────────────────────────────────────────
+function deleteStudent(i) {
+  if(!confirm(`Delete "${students[i].name}"?`)) return;
+  students.splice(i,1);
+  persist(); renderTable(); renderDashboard();
+  showToast('Student deleted.','error');
+}
+
+// ── TABLE RENDER ──────────────────────────────────────────
+function sortTable(key) {
+  if(sortKey===key) sortAsc=!sortAsc; else{sortKey=key;sortAsc=true;}
+  renderTable();
+}
+function renderTable() {
+  const query=document.getElementById('searchInput').value.toLowerCase();
+  let list=[...students];
+  if(query) list=list.filter(s=>s.name.toLowerCase().includes(query));
+  list.sort((a,b)=>{
+    let va=sortKey==='name'?a.name.toLowerCase():a[sortKey];
+    let vb=sortKey==='name'?b.name.toLowerCase():b[sortKey];
+    return sortAsc?(va>vb?1:-1):(va<vb?1:-1);
+  });
+  const tbody=document.getElementById('student-table-body');
+  const empty=document.getElementById('table-empty');
+  if(list.length===0){tbody.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  tbody.innerHTML=list.map(s=>{
+    const origIdx=students.indexOf(s);
+    const pct=s.percentage.toFixed(1);
+    const barW=(s.gpa/4*100).toFixed(0);
+    return `<tr>
+      <td style="color:var(--muted);font-size:0.8rem;">${origIdx+1}</td>
+      <td style="font-weight:600;">${s.name}</td>
+      ${subjects.map((_,j)=>`<td>${s.marks[j]!==undefined?s.marks[j]:'—'}</td>`).join('')}
+      <td><strong>${pct}%</strong></td>
+      <td><div class="gpa-bar-wrap"><span style="font-weight:600;">${s.gpa.toFixed(1)}</span><div class="gpa-bar"><div class="gpa-bar-fill" style="width:${barW}%"></div></div></div></td>
+      <td><span class="grade-badge ${gradeClass(s.grade)}">${s.grade}</span></td>
+      <td style="display:flex;gap:6px;">
+        <button class="btn btn-ghost btn-sm" onclick="openEditModal(${origIdx})">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteStudent(${origIdx})">Del</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────
+function renderDashboard() {
+  const total=students.length;
+  document.getElementById('stat-total').textContent=total;
+  if(total===0){
+    document.getElementById('stat-avg').textContent='—';
+    document.getElementById('stat-pass').textContent='—';
+    document.getElementById('stat-risk').textContent='0';
+    document.getElementById('top-list').innerHTML=`<div class="empty-state"><svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><p>Add students to see top performers</p></div>`;
+    return;
+  }
+  const avgGPA=(students.reduce((a,s)=>a+s.gpa,0)/total).toFixed(2);
+  const passing=students.filter(s=>s.percentage>=50).length;
+  const risk=total-passing;
+  document.getElementById('stat-avg').textContent=avgGPA;
+  document.getElementById('stat-pass').textContent=((passing/total)*100).toFixed(0)+'%';
+  document.getElementById('stat-risk').textContent=risk;
+  const top=[...students].sort((a,b)=>b.gpa-a.gpa).slice(0,5);
+  const labels=['🥇','🥈','🥉','4','5'];
+  const cls=['gold','silver','bronze','',''];
+  document.getElementById('top-list').innerHTML=top.map((s,i)=>`
+    <div class="top-student">
+      <div class="rank ${cls[i]}">${labels[i]}</div>
+      <div class="avatar">${s.name[0].toUpperCase()}</div>
+      <div class="student-info"><div class="student-name-sm">${s.name}</div><div class="student-pct">${s.percentage.toFixed(1)}% · GPA ${s.gpa.toFixed(1)}</div></div>
+      <span class="grade-badge ${gradeClass(s.grade)}">${s.grade}</span>
+    </div>`).join('');
+}
+
+// ── ANALYTICS ─────────────────────────────────────────────
+function renderAnalytics() {
+  if(students.length===0){
+    document.getElementById('subject-chart').innerHTML='<div style="color:var(--muted);font-size:0.85rem;">No data yet.</div>';
+    document.getElementById('gpa-bars').innerHTML='';
+    return;
+  }
+  const subAvgs=subjects.map((_,j)=>students.reduce((a,s)=>a+(s.marks[j]||0),0)/students.length);
+  document.getElementById('subject-chart').innerHTML=subAvgs.map((avg,i)=>`
+    <div class="bar-col">
+      <div class="bar-val">${avg.toFixed(0)}</div>
+      <div class="bar" style="height:${avg.toFixed(0)}px;background:hsl(${220+i*28},70%,60%)"></div>
+      <div class="bar-lbl">${subjects[i].substring(0,4)}</div>
+    </div>`).join('');
+
+  const gradeCounts={'A+':0,'A':0,'B':0,'C':0,'D':0,'F':0};
+  students.forEach(s=>gradeCounts[s.grade]++);
+  const colors={'A+':'#22c55e','A':'#4ade80','B':'#6c63ff','C':'#f59e0b','D':'#f97316','F':'#ef4444'};
+  const canvas=document.getElementById('donut-canvas');
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,120,120);
+  const total=students.length;
+  let angle=-Math.PI/2;
+  const entries=Object.entries(gradeCounts).filter(([,v])=>v>0);
+  entries.forEach(([grade,count])=>{
+    const slice=(count/total)*2*Math.PI;
+    ctx.beginPath(); ctx.moveTo(60,60);
+    ctx.arc(60,60,50,angle,angle+slice);
+    ctx.closePath(); ctx.fillStyle=colors[grade]; ctx.fill();
+    angle+=slice;
+  });
+  ctx.beginPath(); ctx.arc(60,60,28,0,2*Math.PI);
+  ctx.fillStyle='#21253a'; ctx.fill();
+  ctx.fillStyle='#e2e8f0'; ctx.font='bold 14px Inter';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(total,60,60);
+  document.getElementById('donut-legend').innerHTML=entries.map(([grade,count])=>`
+    <div class="legend-item"><div class="legend-dot" style="background:${colors[grade]}"></div><span style="color:var(--muted)">${grade}</span><span style="font-weight:600;margin-left:4px;">${count}</span></div>`).join('');
+
+  const sorted=[...students].sort((a,b)=>b.gpa-a.gpa);
+  document.getElementById('gpa-bars').innerHTML=sorted.map(s=>`
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:60px;">
+      <div style="font-size:0.7rem;font-weight:600;color:var(--accent2)">${s.gpa.toFixed(1)}</div>
+      <div style="width:40px;background:var(--border);border-radius:4px;height:80px;display:flex;align-items:flex-end;">
+        <div style="width:100%;background:var(--accent);border-radius:4px;height:${(s.gpa/4)*80}px;transition:height 0.5s;"></div>
+      </div>
+      <div style="font-size:0.65rem;color:var(--muted);text-align:center;max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.name.split(' ')[0]}</div>
+    </div>`).join('');
+}
+
+// ── SUBJECTS MANAGER ──────────────────────────────────────
+function renderSubjectManager() {
+  document.getElementById('subject-list-ui').innerHTML = subjects.map((s,i)=>`
+    <div class="subject-item" id="subj-item-${i}">
+      <input type="text" value="${s}" id="subj-edit-${i}" maxlength="30"
+        onkeydown="if(event.key==='Enter') renameSubject(${i})"
+        style="flex:1;background:transparent;border:none;outline:none;color:var(--text);font-size:0.875rem;font-family:var(--font-main)"/>
+      <button class="btn btn-ghost btn-sm" onclick="renameSubject(${i})">Rename</button>
+      ${subjects.length>1?`<button class="btn btn-danger btn-sm" onclick="removeSubject(${i})">Remove</button>`:''}
+    </div>`).join('');
+  document.getElementById('subj-error').textContent='';
+}
+
+function addSubject() {
+  const input=document.getElementById('new-subject-input');
+  const name=input.value.trim();
+  const err=document.getElementById('subj-error');
+  if(!name){err.textContent='Please enter a subject name.';return;}
+  if(subjects.map(s=>s.toLowerCase()).includes(name.toLowerCase())){err.textContent='This subject already exists.';return;}
+  if(subjects.length>=12){err.textContent='Maximum 12 subjects allowed.';return;}
+
+  if(students.length>0 && !confirm('Adding a subject will clear all student data. Continue?')) return;
+  students=[];
+  subjects.push(name);
+  input.value='';
+  persist();
+  renderSubjectManager();
+  buildTableHead();
+  showToast(`"${name}" added!`,'success');
+}
+
+function removeSubject(i) {
+  if(subjects.length<=1){showToast('Need at least 1 subject.','error');return;}
+  if(!confirm(`Remove "${subjects[i]}"? This will clear all student data.`)) return;
+  students=[];
+  subjects.splice(i,1);
+  persist();
+  renderSubjectManager();
+  buildTableHead();
+  showToast(`Subject removed.`,'error');
+}
+
+function renameSubject(i) {
+  const val=document.getElementById('subj-edit-'+i).value.trim();
+  const err=document.getElementById('subj-error');
+  if(!val){err.textContent='Name cannot be empty.';return;}
+  const dup=subjects.findIndex((s,idx)=>s.toLowerCase()===val.toLowerCase()&&idx!==i);
+  if(dup!==-1){err.textContent='Another subject already has that name.';return;}
+  subjects[i]=val;
+  persist();
+  renderSubjectManager();
+  showToast(`Renamed to "${val}"!`,'success');
+}
+
+function resetSubjects() {
+  if(!confirm('Reset to default subjects (Math, Physics, English, OOP, DSA)? This clears all student data.')) return;
+  subjects=[...DEFAULT_SUBJECTS];
+  students=[];
+  persist();
+  renderSubjectManager();
+  buildTableHead();
+  showToast('Reset to defaults.','success');
+}
+
+// ── CSV EXPORT ────────────────────────────────────────────
+function exportCSV() {
+  if(!students.length){showToast('No data to export.','error');return;}
+  const header=['Name',...subjects,'Percentage','GPA','Grade'];
+  const rows=students.map(s=>[s.name,...s.marks,s.percentage.toFixed(2),s.gpa.toFixed(1),s.grade]);
+  const csv=[header,...rows].map(r=>r.join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='gradebook.csv';a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV exported!','success');
+}
+
+// ── TOAST ─────────────────────────────────────────────────
+function showToast(msg,type='success') {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className=`show ${type}`;
+  setTimeout(()=>t.className='',2800);
+}
+
+document.getElementById('modal-overlay').addEventListener('click',function(e){if(e.target===this)closeModal();});
+
+// INIT
+buildTableHead();
+renderDashboard();
+</script>
+</body>
+</html>
+HTMLEOF
+echo "Done"
